@@ -1,0 +1,237 @@
+---
+# fetch needed repositories
+- hosts: all
+  become: yes
+  collections:
+    - icinga.icinga
+  roles:
+    - repos
+
+
+# config master
+- hosts: main_config
+  become: yes
+  
+  collections:
+    - icinga.icinga
+  roles:
+    - icinga2
+  vars:
+    icinga2_config_directories:
+      - zones.d/main/
+      - zones.d/satellite-zone-A/
+      - zones.d/satellite-zone-B/
+    icinga2_purge_features: no
+    icinga2_constants:
+      ZoneName: main
+      TicketSalt: "abcdefghijklmnop" # get from Vault
+    icinga2_confd: no # don't include local config
+    icinga2_features:
+      - name: checker
+      - name: mainlog
+      - name: idomysql
+        host: localhost
+        port: 3306
+        database: icinga2
+        password: icinga2
+        import_schema: yes
+        cleanup:
+          downtimehistory_age: 180d
+          contactnotifications_age: 31d
+        enable_ha: yes
+      - name: api
+        force_newcert: no
+        ca_host: none # initialize CA
+        accept_config: yes
+        endpoints:
+          - name: NodeName # own endpoint
+          - name: bayer-rhel8-icinga-5.novalocal # sibling + connection details
+            host: 10.77.14.180
+            port: 5665
+          - name: bayer-rhel8-icinga-2.novalocal # child 1
+          - name: bayer-rhel8-icinga-3.novalocal # child 2
+          - name: bayer-rhel8-icinga-6.novalocal # child 3
+        zones:
+          - name: main # own zone
+            endpoints:
+              - NodeName
+              - bayer-rhel8-icinga-5.novalocal
+          - name: satellite-zone-A # child-zone 1
+            endpoints:
+              - bayer-rhel8-icinga-2.novalocal
+            parent: main
+          - name: satellite-zone-B # child-zone 2
+            endpoints:
+              - bayer-rhel8-icinga-3.novalocal
+              - bayer-rhel8-icinga-6.novalocal
+            parent: main
+
+# secondary master
+- hosts: main_secondary
+  become: yes
+  collections:
+    - icinga.icinga
+  roles:
+    - icinga2
+  vars:
+    icinga2_purge_features: no
+    icinga2_constants:
+      ZoneName: main
+      TicketSalt: "abcdefghijklmnop" # get from Vault
+    icinga2_confd: no # don't include local config
+    icinga2_features:
+      - name: checker
+      - name: mainlog
+      - name: idomysql
+        host: 10.77.14.95
+        port: 3306
+        database: icinga2
+        password: icinga2
+        import_schema: no
+        cleanup:
+          downtimehistory_age: 180d
+          contactnotifications_age: 31d
+        enable_ha: yes
+      - name: api
+        force_newcert: no
+        ca_host: 10.77.14.95
+        accept_config: yes
+        endpoints:
+          - name: NodeName # own endpoint
+          - name: bayer-rhel8-icinga-1.novalocal # sibling + connection details
+            host: 10.77.14.95
+            port: 5665
+          - name: bayer-rhel8-icinga-2.novalocal # child 1
+          - name: bayer-rhel8-icinga-3.novalocal # child 2
+          - name: bayer-rhel8-icinga-6.novalocal # child 3
+        zones:
+          - name: main # own zone
+            endpoints:
+              - NodeName
+              - bayer-rhel8-icinga-1.novalocal
+          - name: satellite-zone-A # child-zone 1
+            endpoints:
+              - bayer-rhel8-icinga-2.novalocal
+            parent: main
+          - name: satellite-zone-B # child-zone 2
+            endpoints:
+              - bayer-rhel8-icinga-3.novalocal
+              - bayer-rhel8-icinga-6.novalocal
+            parent: main
+
+# satellite-zone-A
+- hosts: satellite_zone_A
+  become: yes
+  collections:
+    - icinga.icinga
+  roles:
+    - icinga2
+  vars:
+    icinga2_purge_features: no
+    icinga2_constants:
+      ZoneName: satellite-zone-A
+      TicketSalt: "abcdefghijklmnop" # get from Vault
+    icinga2_confd: no # don't include local config
+    icinga2_features:
+      - name: checker
+      - name: mainlog
+      - name: api
+        accept_config: yes
+        force_newcert: yes # always recreate cert for now
+        ca_host: 10.77.14.95 # get certificate signed by master
+        endpoints:
+          - name: NodeName # own endpoint
+          - name: bayer-rhel8-icinga-1.novalocal # parent endpoint + connection details
+            host: 10.77.14.95
+            port: 5665
+          - name: bayer-rhel8-icinga-5.novalocal # parent endpoint + connection details
+            host: 10.77.14.180
+            port: 5665
+          - name: bayer-rhel8-icinga-4.novalocal # child endpoint
+        zones:
+          - name: main # parent zone
+            endpoints:
+              - bayer-rhel8-icinga-1.novalocal
+              - bayer-rhel8-icinga-5.novalocal
+          - name: satellite-zone-A # own zone
+            endpoints:
+              - NodeName
+            parent: main
+          - name: bayer-rhel8-icinga-4.novalocal # child zone
+            endpoints:
+              - bayer-rhel8-icinga-4.novalocal
+            parent: satellite-zone-A
+
+# satellite-zone-B
+- hosts: satellite_zone_B
+  become: yes
+  collections:
+    - icinga.icinga
+  roles:
+    - icinga2
+  vars:
+    icinga2_purge_features: no
+    icinga2_constants:
+      ZoneName: satellite-zone-B
+      TicketSalt: "abcdefghijklmnop" # get from Vault
+    icinga2_confd: no # don't include local config
+    icinga2_features:
+      - name: checker
+      - name: mainlog
+      - name: api
+        accept_config: yes
+        force_newcert: yes # always recreate cert for now
+        ca_host: 10.77.14.95 # get certificate signed by master
+        endpoints:
+          - name: bayer-rhel8-icinga-3.novalocal # sibling endpoint + connection details
+            host: 10.77.14.81
+            port: 5665
+          - name: bayer-rhel8-icinga-6.novalocal # sibling endpoint + connection details
+            host: 10.77.14.204
+            port: 5665
+          - name: bayer-rhel8-icinga-1.novalocal # parent endpoint + connection details
+            host: 10.77.14.95
+            port: 5665
+          - name: bayer-rhel8-icinga-5.novalocal # parent endpoint + connection details
+        zones:
+          - name: main # parent zone
+            endpoints:
+              - bayer-rhel8-icinga-1.novalocal
+              - bayer-rhel8-icinga-5.novalocal
+          - name: satellite-zone-B # own zone
+            endpoints:
+              - bayer-rhel8-icinga-3.novalocal
+              - bayer-rhel8-icinga-6.novalocal
+            parent: main
+
+- hosts: agents_zone_A
+  become: yes
+  collections:
+    - icinga.icinga
+  roles:
+    - icinga2
+  vars:
+    icinga2_purge_features: no
+    icinga2_constants:
+      ZoneName: NodeName # each agent goes into its own zone
+    icinga2_confd: no # don't include local config
+    icinga2_features:
+      - name: checker
+      - name: mainlog
+      - name: api
+        accept_config: yes
+        force_newcert: yes # always recreate cert for now
+        ca_host: 10.77.14.52 # get cert signed by satellite in zone A (who knows ticketsalt and ca from master)
+        endpoints:
+          - name: NodeName # own endpoint
+          - name: bayer-rhel8-icinga-2.novalocal # satellite endpoint in zone A + connection details
+            host: 10.77.14.52
+            port: 5665
+        zones:
+          - name: NodeName # own zone
+            endpoints:
+              - NodeName
+            parent: satellite-zone-A
+          - name: satellite-zone-A # parent (=satellite) zone
+            endpoints:
+              - bayer-rhel8-icinga-2.novalocal

@@ -1,0 +1,95 @@
+---
+icinga2_objects:
+  bayer-rhel8-icinga-1.novalocal:
+    # groups
+    - name: linux-servers
+      type: HostGroup
+      file: zones.d/main/hostgroups.conf
+      display_name: Linux Servers
+      assign:
+        - host.vars.os == Linux
+    - name: windows-server
+      type: HostGroup
+      file: zones.d/main/hostgroups.conf
+      display_name: Windows Servers
+      assign:
+        - host.vars.os == Windows
+    - name: parents
+      type: HostGroup
+      file: zones.d/main/hostgroups.conf
+      display_name: Parents
+      assign:
+        - host.zone in [main, satellite-zone-A, satellite-zone-B]
+    # hosts
+    - name: bayer-rhel8-icinga-2.novalocal
+      type: Host
+      file: zones.d/satellite-zone-A/hosts.conf
+      display_name: bayer-rhel8-icinga-2
+      address: 10.77.14.52
+      check_command: hostalive
+      vars:
+        os: Linux
+      zone: satellite-zone-A
+    - name: bayer-rhel8-icinga-3.novalocal
+      type: Host
+      file: zones.d/satellite-zone-B/hosts.conf
+      display_name: bayer-rhel8-icinga-3
+      address: 10.77.14.81
+      check_command: hostalive
+      vars:
+        os: Linux
+      zone: satellite-zone-B
+    - name: bayer-rhel8-icinga-4.novalocal
+      type: Host
+      file: zones.d/satellite-zone-A/hosts.conf
+      display_name: bayer-rhel8-icinga-4
+      address: 10.77.14.20
+      check_command: hostalive
+      vars:
+        os: Linux
+      zone: bayer-rhel8-icinga-4.novalocal
+    - name: bayer-rhel8-icinga-5.novalocal
+      type: Host
+      file: zones.d/main/hosts.conf
+      display_name: bayer-rhel8-icinga-5
+      address: 10.77.14.180
+      check_command: hostalive
+      vars:
+        os: Linux
+      zone: main
+    - name: bayer-rhel8-icinga-6.novalocal
+      type: Host
+      file: zones.d/satellite-zone-B/hosts.conf
+      display_name: bayer-rhel8-icinga-6
+      address: 10.77.14.204
+      check_command: hostalive
+      vars:
+         os: Linux
+      zone: satellite-zone-B
+    # agent endpoints
+    - name: bayer-rhel8-icinga-4.novalocal
+      type: Endpoint
+      file: zones.d/satellite-zone-A/agent_endpoints.conf
+      host: 10.77.14.20
+    # agent zones
+    - name: bayer-rhel8-icinga-4.novalocal
+      type: Zone
+      file: zones.d/satellite-zone-A/agent_zones.conf
+      endpoints:
+        - bayer-rhel8-icinga-4.novalocal
+    # service apply rules
+    - name: zone_health
+      type: Service
+      file: zones.d/main/services.conf
+      apply: true
+      check_command: cluster
+      assign:
+        - parents in host.groups
+      command_endpoint: host_name
+    # API user
+    - name: root
+      type: ApiUser
+      password: root
+      file: zones.d/main/api_users.conf
+      permissions:
+        - "*"
