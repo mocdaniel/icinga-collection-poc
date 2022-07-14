@@ -1,0 +1,12 @@
+---
+
+- name: Install check plugins
+  dnf:
+    name: nagios-plugins-all
+    state: present
+
+- name: Install mysql on masters
+  dnf:
+    name: mysql
+    state: present
+  when: "'main_config' in group_names or 'main_secondary' in group_names"

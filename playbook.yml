@@ -1,12 +1,16 @@
 ---
 # fetch needed repositories
-- hosts: all
-  become: yes
-  collections:
-    - icinga.icinga
-  roles:
-    - repos
+#- hosts: all
+#  become: yes
+#  collections:
+#    - icinga.icinga
+#  roles:
+#    - repos
 
+#- hosts: all
+#  become: yes
+#  roles:
+#    - prepare
 
 # config master
 - hosts: main_config
@@ -21,6 +25,7 @@
       - zones.d/main/
       - zones.d/satellite-zone-A/
       - zones.d/satellite-zone-B/
+      - zones.d/global-templates/
     icinga2_purge_features: no
     icinga2_constants:
       ZoneName: main
@@ -65,6 +70,8 @@
               - bayer-rhel8-icinga-3.novalocal
               - bayer-rhel8-icinga-6.novalocal
             parent: main
+          - name: global-templates
+            global: yes
 
 # secondary master
 - hosts: main_secondary
@@ -118,6 +125,8 @@
               - bayer-rhel8-icinga-3.novalocal
               - bayer-rhel8-icinga-6.novalocal
             parent: main
+          - name: global-templates
+            global: yes
 
 # satellite-zone-A
 - hosts: satellite_zone_A
@@ -137,7 +146,7 @@
       - name: mainlog
       - name: api
         accept_config: yes
-        force_newcert: yes # always recreate cert for now
+        force_newcert: no # always recreate cert for now
         ca_host: 10.77.14.95 # get certificate signed by master
         endpoints:
           - name: NodeName # own endpoint
@@ -147,7 +156,6 @@
           - name: bayer-rhel8-icinga-5.novalocal # parent endpoint + connection details
             host: 10.77.14.180
             port: 5665
-          - name: bayer-rhel8-icinga-4.novalocal # child endpoint
         zones:
           - name: main # parent zone
             endpoints:
@@ -157,10 +165,8 @@
             endpoints:
               - NodeName
             parent: main
-          - name: bayer-rhel8-icinga-4.novalocal # child zone
-            endpoints:
-              - bayer-rhel8-icinga-4.novalocal
-            parent: satellite-zone-A
+          - name: global-templates
+            global: yes
 
 # satellite-zone-B
 - hosts: satellite_zone_B
@@ -180,7 +186,7 @@
       - name: mainlog
       - name: api
         accept_config: yes
-        force_newcert: yes # always recreate cert for now
+        force_newcert: no # always recreate cert for now
         ca_host: 10.77.14.95 # get certificate signed by master
         endpoints:
           - name: bayer-rhel8-icinga-3.novalocal # sibling endpoint + connection details
@@ -193,6 +199,8 @@
             host: 10.77.14.95
             port: 5665
           - name: bayer-rhel8-icinga-5.novalocal # parent endpoint + connection details
+            host: 10.77.14.180
+            port: 5665
         zones:
           - name: main # parent zone
             endpoints:
@@ -203,6 +211,8 @@
               - bayer-rhel8-icinga-3.novalocal
               - bayer-rhel8-icinga-6.novalocal
             parent: main
+          - name: global-templates
+            global: yes
 
 - hosts: agents_zone_A
   become: yes
@@ -220,7 +230,7 @@
       - name: mainlog
       - name: api
         accept_config: yes
-        force_newcert: yes # always recreate cert for now
+        force_newcert: no # always recreate cert for now
         ca_host: 10.77.14.52 # get cert signed by satellite in zone A (who knows ticketsalt and ca from master)
         endpoints:
           - name: NodeName # own endpoint
@@ -235,3 +245,5 @@
           - name: satellite-zone-A # parent (=satellite) zone
             endpoints:
               - bayer-rhel8-icinga-2.novalocal
+          - name: global-templates
+            global: yes

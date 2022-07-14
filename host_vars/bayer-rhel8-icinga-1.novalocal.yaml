@@ -4,23 +4,32 @@ icinga2_objects:
     # groups
     - name: linux-servers
       type: HostGroup
-      file: zones.d/main/hostgroups.conf
+      file: zones.d/global-templates/hostgroups.conf
       display_name: Linux Servers
       assign:
         - host.vars.os == Linux
     - name: windows-server
       type: HostGroup
-      file: zones.d/main/hostgroups.conf
+      file: zones.d/global-templates/hostgroups.conf
       display_name: Windows Servers
       assign:
         - host.vars.os == Windows
     - name: parents
       type: HostGroup
-      file: zones.d/main/hostgroups.conf
+      file: zones.d/global-templates/hostgroups.conf
       display_name: Parents
       assign:
         - host.zone in [main, satellite-zone-A, satellite-zone-B]
     # hosts
+    - name: bayer-rhel8-icinga-1.novalocal
+      type: Host
+      file: zones.d/main/hosts.conf
+      display_name: bayer-rhel8-icinga-1
+      address: 10.77.14.95
+      check_command: hostalive
+      vars:
+        os: Linux
+      zone: main
     - name: bayer-rhel8-icinga-2.novalocal
       type: Host
       file: zones.d/satellite-zone-A/hosts.conf
@@ -47,7 +56,7 @@ icinga2_objects:
       check_command: hostalive
       vars:
         os: Linux
-      zone: bayer-rhel8-icinga-4.novalocal
+      zone: satellite-zone-A
     - name: bayer-rhel8-icinga-5.novalocal
       type: Host
       file: zones.d/main/hosts.conf
@@ -77,10 +86,11 @@ icinga2_objects:
       file: zones.d/satellite-zone-A/agent_zones.conf
       endpoints:
         - bayer-rhel8-icinga-4.novalocal
+      parent: satellite-zone-A
     # service apply rules
     - name: zone_health
       type: Service
-      file: zones.d/main/services.conf
+      file: zones.d/global-templates/apply-rules.conf
       apply: true
       check_command: cluster
       assign:
